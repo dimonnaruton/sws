@@ -1,0 +1,89 @@
+name: Build SWS Extension
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-windows:
+    strategy:
+      matrix:
+        arch: [x64, Win32]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: choco install php perl nsis
+
+      - name: Configure (Windows ${{ matrix.arch }})
+        run: cmake -B build -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (Windows ${{ matrix.arch }})
+        run: cmake --build build --config Release
+
+      - name: Package (Windows ${{ matrix.arch }})
+        run: cmake --build build --target package --config Release
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: sws-windows-${{ matrix.arch }}
+          path: build/*.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y cmake g++ php perl pkg-config libgdk-pixbuf2.0-dev
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Package
+        run: cmake --build build --target package
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: sws-linux
+          path: build/*.txz
+
+  build-macos:
+    strategy:
+      matrix:
+        arch: ["x86_64;arm64", "x86_64", "arm64"]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: brew install cmake php perl
+
+      - name: Configure (macOS ${{ matrix.arch }})
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="${{ matrix.arch }}"
+
+      - name: Build (macOS ${{ matrix.arch }})
+        run: cmake --build build --config Release
+
+      - name: Package (macOS ${{ matrix.arch }})
+        run: cmake --build build --target package --config Release
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: sws-macos-${{ matrix.arch }}
+          path: build/*.dmg
